@@ -6,6 +6,8 @@
 param([Parameter(ValueFromRemainingArguments = $true)][string[]]$ToolArgs)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$active = & (Join-Path $root 'Standalone-Update.ps1') -Action Resolve
+if ($active) { & (Join-Path $active 'Launch-HLK.ps1') @ToolArgs; exit $LASTEXITCODE }
 $script = Join-Path $root 'hlk_viewer.pyw'
 
 function Resolve-HlkPython([bool]$Gui) {

@@ -10,6 +10,10 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+if ($ParentPid -eq 0) {
+    $active = & (Join-Path $here 'Standalone-Update.ps1') -Action Resolve
+    if ($active) { & (Join-Path $active 'HLK-Web.ps1') @PSBoundParameters; exit $LASTEXITCODE }
+}
 
 function Find-Python {
     # same order as Hub Resolve-PythonExe (minus hub settings): env > .venv > py > PATH python (skip WindowsApps)

@@ -7,11 +7,13 @@
 """
 
 import os
+import queue
 import re
 import sys
 import threading
 import traceback
 import webbrowser
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -22,6 +24,7 @@ import hlk_core
 import hlk_wtl
 import hlk_xlsx
 from hlk_core import STATUS_TEXT
+from standalone_update import check_update, open_update
 
 
 def human_size(n):
@@ -289,6 +292,9 @@ class App(tk.Tk):
         ttk.Button(bar, text='開啟 HLK 檔案…', command=self.open_dialog).pack(side='left')
         ttk.Button(bar, text='Te.wtl → .htm 匯出…', command=lambda: self.export_dialog()).pack(side='left', padx=8)
         ttk.Button(bar, text='匯出側項結果 Excel…', command=self.export_excel).pack(side='left')
+        self.update_button = ttk.Button(bar, text='↓', width=4)
+        self.update_results = queue.Queue()
+        self.after_idle(self.check_update)
         ttk.Label(bar, textvariable=self.status).pack(side='right')
 
         f2 = ttk.Frame(self, padding=(8, 0))
@@ -334,6 +340,27 @@ class App(tk.Tk):
         self.lbl_hint.pack(fill='x')
 
     # --------------------------------------------------------------- 開啟
+    def check_update(self):
+        root = Path(__file__).resolve().parent
+        threading.Thread(target=lambda: self.update_results.put(check_update(root)), daemon=True).start()
+        self.after(150, self.show_available_update)
+
+    def show_available_update(self):
+        try:
+            result = self.update_results.get_nowait()
+        except queue.Empty:
+            self.after(150, self.show_available_update)
+            return
+        version = (result.get('update') or {}).get('version')
+        if version:
+            self.update_button.configure(command=lambda: self.install_update(version))
+            self.update_button.pack(side='left', padx=8)
+
+    def install_update(self, version):
+        result = open_update(Path(__file__).resolve().parent, version)
+        if not result['ok']:
+            messagebox.showerror('HLK Viewer 更新', result['error']['message'], parent=self)
+
     def open_dialog(self):
         fp = filedialog.askopenfilename(
             title='選擇 HLK 檔案', parent=self, initialdir=os.path.expanduser('~\\Desktop'),

@@ -18,6 +18,7 @@
   <div class="tool-topbar__brand"><span class="tb-card__icon"><i data-tb-icon="circle-check" data-size="17"></i></span>HLK Viewer</div>
   <div class="tb-row tb-row--end tool-topbar__controls">
     <span id="server-port" class="tool-topbar__port">本機服務 port —</span>
+    <button id="standalone-update" class="tb-btn tb-btn--icon tb-hidden" type="button" hidden><i data-tb-icon="download" aria-hidden="true"></i></button>
     <span id="server-state" class="tb-badge" role="status">連線中…</span>
     <button id="theme-toggle" class="tb-btn tb-btn--icon" type="button" aria-label="切換主題"><i data-tb-icon="sun"></i></button>
   </div>
@@ -290,5 +291,6 @@
 </div>
 
 <script src="/app.js"></script>
+<script src="tb-standalone-update.js" defer></script>
 </body>
 </html>

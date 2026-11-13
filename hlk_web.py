@@ -41,6 +41,7 @@ import tempfile
 import threading
 import time
 import webbrowser
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse, quote
 
@@ -50,6 +51,7 @@ import hlk_core                                    # noqa: E402
 import hlk_wtl                                     # noqa: E402
 import hlk_xlsx                                    # noqa: E402
 from hlk_core import STATUS_TEXT                   # noqa: E402
+from standalone_update import handle_update        # noqa: E402
 
 VERSION = '1.2.7'
 TOOL_ID = 'hlk-viewer'
@@ -65,7 +67,7 @@ UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ui')
 UI_FILES = {'/': 'index.html', '/index.html': 'index.html', '/app.js': 'app.js',
             '/app.css': 'app.css', '/ui-kit.css': 'ui-kit.css',
             '/tb-theme.js': 'tb-theme.js', '/tb-icons.js': 'tb-icons.js',
-            '/tb-dirpicker.js': 'tb-dirpicker.js'}
+            '/tb-dirpicker.js': 'tb-dirpicker.js', '/tb-standalone-update.js': 'tb-standalone-update.js'}
 CSP_PAGE = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:; connect-src 'self'; frame-src 'self'; ")
 # exported/previewed HTML: no scripts, but hlk_wtl emits inline styles
@@ -363,6 +365,10 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return self._send_err('BAD_JSON', 'JSON 解析失敗', 400)
         path = urlparse(self.path).path
+        if path == '/api/standalone-update':
+            if self.managed:
+                return self._send_err('MANAGED_BY_HUB', '請從 Hub 更新工具。', 403)
+            return self._send_json(handle_update(Path(__file__).resolve().parent, body))
         if path == '/api/open':
             return self._api_open(body if isinstance(body, dict) else {})
         if path == '/api/close':
@@ -899,6 +905,7 @@ def main(argv=None):
 
     Handler.port = httpd.server_address[1]
     HTTPD = httpd
+    Handler.managed = bool(args.parent_pid)
     if args.hub_origin:
         m = re.match(r'^http://(127\.0\.0\.1|localhost):(\d{1,5})$', args.hub_origin.strip().lower())
         if m:
