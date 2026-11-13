@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f3f5f9">
+<link rel="icon" href="data:,">
+<title>HLK Viewer</title>
+<link rel="stylesheet" href="/ui-kit.css">
+<link rel="stylesheet" href="/app.css">
+<!-- 深淺色／強調色：網址 ?theme=&accent=（Hub 嵌入時帶入）> 本機記憶 > 跟隨系統 -->
+<script src="/tb-theme.js"></script>
+<script src="/tb-icons.js"></script>
+<script src="/tb-dirpicker.js"></script>
+</head>
+<body class="tb-app">
+<header class="tool-topbar tb-hide-embedded">
+  <div class="tool-topbar__brand"><span class="tb-card__icon"><i data-tb-icon="circle-check" data-size="17"></i></span>HLK Viewer</div>
+  <div class="tb-row tb-row--end tool-topbar__controls">
+    <span id="server-port" class="tool-topbar__port">本機服務 port —</span>
+    <span id="server-state" class="tb-badge" role="status">連線中…</span>
+    <button id="theme-toggle" class="tb-btn tb-btn--icon" type="button" aria-label="切換主題"><i data-tb-icon="sun"></i></button>
+  </div>
+</header>
+
+<!-- ============ 分頁（視圖切換，對齊 Build Runner／Git Ref Manager 的 tb-tab 標準） ============ -->
+<nav class="tb-tabs tool-tabs" aria-label="HLK Viewer 檢視">
+  <button class="tb-tab is-active" id="ptab-runs" type="button"><i data-tb-icon="package"></i>測試項</button>
+  <button class="tb-tab hidden" id="ptab-errors" type="button"><i data-tb-icon="triangle-alert"></i>錯誤</button>
+  <button class="tb-tab hidden" id="ptab-chunks" type="button"><i data-tb-icon="file-code"></i>Log 串流</button>
+</nav>
+
+<main class="hlk-main">
+  <!-- ============ 開檔 ============ -->
+  <section class="tb-card">
+    <div class="tb-card__head hlk-file-head">
+      <h2 class="tb-card__title">HLK 結果檔</h2>
+      <span class="tb-card__label" id="file-label">開啟 .hlk/.hlkx/.hlkp 以檢視側項與 Log（單一 .wtl 可直開預覽）</span>
+      <span class="tb-badge" id="state-badge">尚未載入</span>
+    </div>
+    <div class="tb-input-row">
+      <input class="tb-input tb-input--mono" id="path-input" type="text"
+             placeholder="例：D:\HLKResults\Project-2026-11-10.hlkx（或拖曳檔案到此視窗）" spellcheck="false">
+      <button class="tb-btn" id="btn-browse" type="button" title="瀏覽本機檔案"><i data-tb-icon="folder-open"></i>瀏覽</button>
+      <button class="tb-btn tb-btn--primary" id="btn-open" type="button">開啟</button>
+      <button class="tb-btn tb-btn--danger hidden" id="btn-close" type="button">關閉</button>
+    </div>
+    <div class="tb-row hlk-chips hidden" id="chips"></div>
+  </section>
+
+  <!-- ============ 獨立 .wtl 單檔模式 ============ -->
+  <section class="tb-card hidden" id="wtl-card">
+    <div class="tb-card__head hlk-file-head">
+      <h2 class="tb-card__title">獨立 .wtl 檔案</h2>
+      <span class="tb-card__label" id="wtl-label"></span>
+    </div>
+    <p class="tb-field__hint">獨立 .wtl 沒有 test config 脈絡，報表為 Complete Test Log 單頁（RTI 時間戳完整）。按「關閉」可改開 .hlk/.hlkx/.hlkp。</p>
+    <div class="tb-row">
+      <button class="tb-btn tb-btn--primary tb-btn--sm" id="wtl-preview" type="button">線上預覽</button>
+      <a class="tb-btn tb-btn--sm" id="wtl-dl" href="#" target="_blank" rel="noopener">下載 .htm</a>
+    </div>
+  </section>
+
+  <!-- ============ 測試項清單 ============ -->
+  <section class="tb-card hidden" id="list-card">
+    <div class="tb-toolbar hlk-toolbar">
+      <select class="tb-select" id="f-status" style="width:120px">
+        <option value="">全部狀態</option>
+        <option value="1">PASS</option>
+        <option value="2">FAIL</option>
+        <option value="0">未執行</option>
+      </select>
+      <input class="tb-input hlk-search" id="f-search" type="search" placeholder="搜尋側項名稱／機器／功能…">
+      <label class="tb-check" id="f-run-label"><input type="checkbox" id="f-run"> 只顯示已執行</label>
+      <span class="tb-spacer"></span>
+      <span class="tb-muted tb-small" id="row-count"></span>
+    </div>
+    <div class="tb-toolbar hlk-toolbar" id="tb-export-row">
+      <button class="tb-btn tb-btn--sm" id="sel-all" type="button">全選</button>
+      <button class="tb-btn tb-btn--sm" id="sel-fail" type="button">只選 FAIL</button>
+      <button class="tb-btn tb-btn--sm" id="sel-pass" type="button">只選 PASS</button>
+      <button class="tb-btn tb-btn--sm tb-btn--ghost" id="sel-none" type="button">清空</button>
+      <button class="tb-btn tb-btn--sm" id="btn-adv" type="button" title="跨側項勾選所有類型 Log（含非 Te.wtl）">所有類型 Log 匯出…</button>
+      <span class="tb-muted tb-small">已選 <b id="sel-count">0</b> 項（Te.wtl）</span>
+      <span class="tb-spacer"></span>
+      <input class="tb-input tb-input--mono hlk-outdir" id="outdir-input" type="text" title="匯出資料夾（留空＝伺服器預設 exports\日期）" placeholder="輸出資料夾">
+      <button class="tb-btn tb-btn--sm" id="btn-xlsx" type="button" title="依目前篩選/排序把側項結果清單匯成 Excel（.xlsx）">匯出 Excel 報表</button>
+      <button class="tb-btn tb-btn--primary tb-btn--sm" id="btn-export" type="button" disabled>
+        <svg class="tb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+        匯出選取 Log
+      </button>
+    </div>
+    <div class="tb-table-wrap hlk-table-wrap">
+      <table class="tb-table" id="tbl">
+        <thead id="thead-res"><tr>
+          <th class="hck"><input type="checkbox" id="ck-head" title="選取本页可见列"></th>
+          <th data-sort="status" class="hnum sortable">狀態</th>
+          <th data-sort="name" class="sortable">測試項</th>
+          <th data-sort="feature" class="sortable">功能</th>
+          <th data-sort="machine" class="sortable">機器</th>
+          <th data-sort="start" class="sortable">開始時間</th>
+          <th data-sort="end" class="sortable">結束時間</th>
+          <th data-sort="logs" class="hnum sortable">Log</th>
+          <th>Te.wtl</th>
+        </tr></thead>
+        <thead id="thead-prj" class="hidden"><tr>
+          <th data-sort="time" class="sortable">時間</th>
+          <th data-sort="status" class="sortable">狀態</th>
+          <th data-sort="job" class="sortable">測試項</th>
+          <th data-sort="target" class="sortable">機器</th>
+          <th data-sort="duration" class="hnum sortable">耗時</th>
+          <th>Bugcheck</th>
+        </tr></thead>
+        <thead id="thead-err" class="hidden"><tr>
+          <th data-sort="time" class="sortable">時間</th>
+          <th data-sort="type" style="width:90px">類型</th>
+          <th data-sort="machine" class="sortable" style="width:200px">來源／機器</th>
+          <th>訊息</th>
+        </tr></thead>
+        <thead id="thead-chunk" class="hidden"><tr>
+          <th class="hnum sortable" data-sort="id" style="width:60px">#</th>
+          <th data-sort="kind" class="sortable" style="width:90px">類型</th>
+          <th data-sort="exe" class="sortable">來源／機器</th>
+          <th data-sort="time" class="sortable" style="width:170px">時間</th>
+          <th class="hnum sortable" data-sort="size" style="width:90px">大小</th>
+          <th style="width:130px">動作</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="tb-empty" id="empty">尚無資料：請輸入 .hlk/.hlkx/.hlkp/.wtl 路徑、按「瀏覽」或直接拖曳檔案到此視窗。</div>
+</main>
+
+<!-- ============ 單項 Log 彈窗 ============ -->
+<div class="hlk-mask hidden" id="row-mask">
+  <div class="hlk-modal" role="dialog" aria-label="測試項 Log">
+    <div class="hlk-modal__head">
+      <span class="hlk-modal__title" id="rm-title">Log</span>
+      <span class="tb-spacer"></span>
+      <button class="tb-btn tb-btn--sm tb-btn--ghost hlk-modal__x" id="rm-close" type="button" title="關閉（Esc）">✕</button>
+    </div>
+    <div class="hlk-modal__body">
+      <div id="rm-list">
+        <div class="tb-table-wrap">
+          <table class="tb-table">
+            <thead><tr><th>Log</th><th>Task</th><th class="hnum">大小</th><th></th></tr></thead>
+            <tbody id="rm-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="rm-preview" class="hidden">
+        <iframe id="rm-frame" title="Log 預覽" src="about:blank"></iframe>
+      </div>
+    </div>
+    <div class="hlk-modal__foot">
+      <button class="tb-btn tb-btn--sm hidden" id="rm-back" type="button">← 回 Log 清單</button>
+      <span class="tb-muted tb-small" id="rm-note"></span>
+      <span class="tb-spacer"></span>
+      <a class="tb-btn tb-btn--sm hidden" id="rm-dl" href="#" target="_blank" rel="noopener" title="下載目前預覽的 Log（Te.wtl 轉成 .htm）">下載此檔（.htm）</a>
+      <button class="tb-btn tb-btn--primary tb-btn--sm" id="rm-export" type="button">匯出此側項全部 Log</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Log 串流 chunk 預覽彈窗 ============ -->
+<div class="hlk-mask hidden" id="pc-mask">
+  <div class="hlk-modal" role="dialog" aria-label="Log chunk 預覽">
+    <div class="hlk-modal__head">
+      <span class="hlk-modal__title" id="pc-title">Log chunk</span>
+      <span class="tb-spacer"></span>
+      <button class="tb-btn tb-btn--sm tb-btn--ghost hlk-modal__x" id="pc-close" type="button" title="關閉（Esc）">✕</button>
+    </div>
+    <div class="hlk-modal__body">
+      <iframe id="pc-frame" title="chunk 預覽" src="about:blank"></iframe>
+    </div>
+    <div class="hlk-modal__foot">
+      <span class="tb-muted tb-small" id="pc-note"></span>
+      <span class="tb-spacer"></span>
+      <a class="tb-btn tb-btn--sm" id="pc-dl" href="#" target="_blank" rel="noopener">下載原始檔</a>
+      <a class="tb-btn tb-btn--primary tb-btn--sm" id="pc-dl-htm" href="#" target="_blank" rel="noopener" title="下載轉換後的 HTML（WTL→Complete Report；其他類型含文字內容）">下載 .htm</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 匯出進度彈窗 ============ -->
+<div class="hlk-mask hidden" id="ex-mask">
+  <div class="hlk-modal hlk-modal--sm" role="dialog" aria-label="匯出進度">
+    <div class="hlk-modal__head">
+      <span class="hlk-modal__title">匯出 Log</span>
+    </div>
+    <div class="hlk-modal__body">
+      <div id="ex-running">
+        <div class="tb-progress"><div class="tb-progress__bar" id="ex-bar" style="width:0%"></div></div>
+        <div class="tb-row" style="margin-top:8px">
+          <span class="tb-small" id="ex-count">0 / 0</span>
+          <span class="tb-spacer"></span>
+          <span class="tb-muted tb-small hlk-ellipsis" id="ex-current"></span>
+        </div>
+      </div>
+      <div id="ex-done" class="hidden tb-stack">
+        <div class="tb-row"><span class="tb-badge tb-badge--ok" id="ex-result">完成</span>
+          <span class="tb-small" id="ex-summary"></span></div>
+        <div class="tb-muted tb-small tb-mono hlk-ellipsis" id="ex-dir"></div>
+        <ul class="hlk-errs hidden" id="ex-errors"></ul>
+      </div>
+    </div>
+    <div class="hlk-modal__foot">
+      <span class="tb-spacer"></span>
+      <button class="tb-btn tb-btn--sm" id="ex-close" type="button">關閉</button>
+      <a class="tb-btn tb-btn--primary tb-btn--sm hidden" id="ex-index" href="#" target="_blank" rel="noopener">開啟索引頁</a>
+    </div>
+  </div>
+</div>
+
+<!-- 檔案瀏覽改用 ui-kit tb-dirpicker.js 共用元件（DOM 由元件動態產生） -->
+
+<!-- ============ 錯誤訊息彈窗 ============ -->
+<div class="hlk-mask hidden" id="ms-mask">
+  <div class="hlk-modal" role="dialog" aria-label="錯誤訊息">
+    <div class="hlk-modal__head">
+      <span class="hlk-modal__title" id="ms-title">錯誤</span>
+      <span class="tb-spacer"></span>
+      <button class="tb-btn tb-btn--sm tb-btn--ghost hlk-modal__x" id="ms-close" type="button" title="關閉（Esc）">✕</button>
+    </div>
+    <div class="hlk-modal__body">
+      <div class="tb-small tb-muted hidden" id="ms-meta" style="margin-bottom:6px"></div>
+      <pre class="hlk-msg" id="ms-body"></pre>
+    </div>
+    <div class="hlk-modal__foot">
+      <span class="tb-muted tb-small" id="ms-note"></span>
+      <span class="tb-spacer"></span>
+      <button class="tb-btn tb-btn--sm" id="ms-ok" type="button">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 所有類型 Log 匯出彈窗（跨側項, 對照 GUI「Log→進階」） ============ -->
+<div class="hlk-mask hidden" id="ad-mask">
+  <div class="hlk-modal" role="dialog" aria-label="所有類型 Log 匯出">
+    <div class="hlk-modal__head">
+      <span class="hlk-modal__title">所有類型 Log 匯出（跨側項）</span>
+      <span class="tb-spacer"></span>
+      <button class="tb-btn tb-btn--sm tb-btn--ghost hlk-modal__x" id="ad-close" type="button" title="關閉（Esc）">✕</button>
+    </div>
+    <div class="tb-toolbar hlk-toolbar" style="padding-inline:4px">
+      <input class="tb-input hlk-search" id="ad-search" type="search" placeholder="過濾側項／Log 名稱／工作…">
+      <button class="tb-btn tb-btn--sm" id="ad-all" type="button">全選</button>
+      <button class="tb-btn tb-btn--sm" id="ad-wtl" type="button">只選 .wtl / .html</button>
+      <button class="tb-btn tb-btn--sm tb-btn--ghost" id="ad-none" type="button">清空</button>
+      <span class="tb-spacer"></span>
+      <span class="tb-muted tb-small">已選 <b id="ad-count">0</b> 筆（上限 2000）</span>
+    </div>
+    <div class="hlk-modal__body">
+      <div id="ad-list" class="hlk-ad-list"></div>
+      <p id="ad-trunc" class="tb-field__hint hidden"></p>
+    </div>
+    <div class="hlk-modal__foot">
+      <span class="tb-muted tb-small">非文字 Log 原樣複製；文字／.wtl 轉 HTML。輸出資料夾同「匯出選取 Log」。</span>
+      <span class="tb-spacer"></span>
+      <button class="tb-btn tb-btn--sm" id="ad-cancel" type="button">取消</button>
+      <button class="tb-btn tb-btn--primary tb-btn--sm" id="ad-export" type="button" disabled>匯出選取</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 拖曳上傳覆蓋層 ============ -->
+<div class="hlk-drop hidden" id="drop-mask">
+  <div class="hlk-drop__box">
+    <svg class="tb-icon hlk-drop__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+    <div class="hlk-drop__text" id="drop-text">放開以上傳並分析 .hlk／.hlkx／.hlkp／.wtl</div>
+    <div class="tb-progress hidden" id="drop-prog-wrap"><div class="tb-progress__bar" id="drop-bar" style="width:0%"></div></div>
+    <div class="tb-muted tb-small" id="drop-note"></div>
+  </div>
+</div>
+
+<div class="hlk-toast hidden" id="toast" role="status"></div>
+
+<!-- ============ 右下角通知卡 ============ -->
+<div class="hlk-notice hidden" id="nt-card" role="status">
+  <span class="hlk-notice__icon" id="nt-icon">
+    <svg class="hlk-spin" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12a9 9 0 1 1-8.5-9" stroke-linecap="round"/></svg>
+  </span>
+  <span class="hlk-notice__text">
+    <b class="hlk-notice__title" id="nt-title">處理中…</b>
+    <span class="hlk-notice__sub" id="nt-sub"></span>
+  </span>
+  <button class="hlk-notice__x" id="nt-x" type="button" title="關閉">✕</button>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

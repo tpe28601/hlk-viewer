@@ -1,0 +1,261 @@
+/* HLK Viewer 專屬樣式（共用樣式在 ui-kit.css） */
+/* ui-kit 3.0 只有 .tb-hidden; 本工具 JS 用 .hidden 控制顯示, 在此補上 */
+.hidden { display: none !important; }
+
+/* ============ 頂部列與分頁（與 Build Runner / Git Ref Manager 同款框架） ============ */
+.tool-topbar, .tool-tabs {
+  padding-inline: 18px;
+  background: var(--tb-surface);
+  border-bottom: 1px solid var(--tb-border);
+}
+.tool-topbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding-block: 10px; flex: none;
+}
+.tool-topbar__brand {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-size: var(--tb-fs-lg); font-weight: 650;
+}
+.tool-topbar__controls { margin-inline-start: auto; }
+.tool-topbar__port { color: var(--tb-muted); font-size: var(--tb-fs-xs); white-space: nowrap; }
+.tool-tabs { gap: 6px; margin-bottom: 0; padding-block: 8px; flex: none; }
+@media (max-width: 560px) {
+  .tool-topbar, .tool-tabs { padding-inline: 10px; }
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--tb-bg);
+  color: var(--tb-text);
+  font-family: var(--tb-font);
+  overflow: hidden;
+}
+.hlk-main {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--tb-space-4) var(--tb-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tb-space-4);
+}
+.hlk-main > .tb-card { flex: none; }
+.hlk-main > #list-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.hlk-toolbar { padding: var(--tb-space-1) 0; }
+.hlk-search { flex: 1; max-width: 340px; min-width: 160px; }
+.hlk-outdir { flex: 1; max-width: 380px; min-width: 160px; }
+.hlk-chips { margin-top: var(--tb-space-3); }
+.hlk-chips .tb-badge { font-size: var(--tb-fs-sm); padding: 3px 10px; }
+
+/* 開檔卡列頭：路徑撐滿剩餘寬度並截斷，載入狀態徽章固定最右 */
+.hlk-file-head #file-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hlk-file-head #state-badge { flex: none; margin-inline-start: auto; }
+
+/* 所有類型 Log 匯出彈窗：群組列＋可捲動勾選清單 */
+.hlk-ad-list { max-height: 46vh; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.hlk-ad-group {
+  font-weight: 600; font-size: var(--tb-fs-sm); color: var(--tb-accent);
+  margin-top: var(--tb-space-2); padding: 2px 4px; border-bottom: 1px solid var(--tb-border);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hlk-ad-item {
+  display: flex; align-items: center; gap: 8px; padding: 3px 6px;
+  border-radius: var(--tb-radius); font-size: var(--tb-fs-sm);
+}
+.hlk-ad-item:hover { background: var(--tb-accent-soft); }
+.hlk-ad-item .hlk-ad-name { max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hlk-ad-item .tb-muted { margin-inline-start: auto; flex: none; }
+
+/* 表格 */
+.hlk-table-wrap { flex: 1; min-height: 0; overflow: auto; }
+.hlk-table-wrap .tb-table th { z-index: 1; }
+.hlk-table-wrap .tb-table td { white-space: nowrap; }
+.hlk-table-wrap tr { cursor: pointer; }
+.hlk-name { max-width: 380px; overflow: hidden; text-overflow: ellipsis; }
+.hlk-feat { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.hnum { text-align: right; }
+.hck { width: 34px; text-align: center; cursor: default; }
+.hck input { accent-color: var(--tb-accent); cursor: pointer; }
+tr.hlk-sel td { background: var(--tb-accent-soft); }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable::after { content: '↕'; margin-left: 4px; opacity: 0.35; font-size: 0.85em; }
+th.sortable.sorted::after { content: '↑'; opacity: 1; }
+th.sortable.sorted[data-dir="desc"]::after { content: '↓'; }
+
+/* 彈窗 */
+.hlk-mask {
+  position: fixed;
+  inset: 0;
+  background: rgb(10 14 25 / 55%);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+  padding: var(--tb-space-4);
+}
+.hlk-modal {
+  background: var(--tb-surface);
+  border: 1px solid var(--tb-border-strong);
+  border-radius: var(--tb-radius-lg);
+  box-shadow: var(--tb-shadow);
+  width: min(1180px, 100%);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+.hlk-modal--sm { width: min(520px, 100%); }
+.hlk-modal__head {
+  display: flex;
+  align-items: center;
+  gap: var(--tb-space-2);
+  padding: var(--tb-space-3) var(--tb-space-4);
+  border-bottom: 1px solid var(--tb-border);
+  font-weight: 650;
+  min-width: 0;
+}
+.hlk-modal__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hlk-modal__x { font-size: var(--tb-fs-lg); line-height: 1; }
+.hlk-modal__body { padding: var(--tb-space-4); overflow: auto; min-height: 0; }
+.hlk-modal__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--tb-space-2);
+  padding: var(--tb-space-3) var(--tb-space-4);
+  border-top: 1px solid var(--tb-border);
+}
+#rm-frame, #pc-frame {
+  width: 100%;
+  height: min(68vh, calc(92vh - 150px));   /* 小螢幕也不超出彈窗, 免二次卷動 */
+  border: 1px solid var(--tb-border);
+  border-radius: var(--tb-radius-md);
+  background: #fff;
+}
+
+/* ---- v1.2.2 Log 清單彈窗: 欄位固定＋截斷, 免左右捲動, 按鈕永遠可見 ---- */
+#rm-list table { table-layout: fixed; width: 100%; }
+#rm-list th:nth-child(1), #rm-list td:nth-child(1) { width: 30%; }
+#rm-list th:nth-child(3), #rm-list td:nth-child(3) { width: 86px; }
+#rm-list th:nth-child(4), #rm-list td:nth-child(4) { width: 96px; }
+#rm-list td { white-space: nowrap; }
+#rm-list .hlk-name { max-width: none; }
+#rm-list td:nth-child(2), #rm-list td:nth-child(4) { overflow: hidden; text-overflow: ellipsis; }
+#rm-list td:nth-child(4) { white-space: nowrap; }
+
+/* 匯出 */
+.hlk-errs {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 140px;
+  overflow: auto;
+  color: var(--tb-danger);
+}
+.hlk-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
+
+/* toast */
+.hlk-toast {
+  position: fixed;
+  bottom: var(--tb-space-5);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--tb-text);
+  color: var(--tb-bg);
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: var(--tb-fs-sm);
+  box-shadow: var(--tb-shadow);
+  z-index: 90;
+  max-width: 80%;
+}
+.hlk-toast--ok { background: var(--tb-ok); color: #fff; }
+
+/* ---- v1.2 拖曳上傳 / 錯誤訊息（檔案瀏覽已改用 ui-kit tb-dirpicker，.tb-dp-* 樣式在 ui-kit.css） ---- */
+
+.hlk-msg {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--tb-font-mono, Consolas, monospace);
+  font-size: var(--tb-fs-sm);
+  max-height: 50vh;
+  overflow: auto;
+  background: var(--tb-surface-2);
+  border: 1px solid var(--tb-border);
+  border-radius: var(--tb-radius-md);
+  padding: var(--tb-space-3);
+}
+.hlk-errmsg { max-width: 720px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.hlk-drop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgb(10 14 25 / 45%);
+  backdrop-filter: blur(2px);
+}
+.hlk-drop__box {
+  width: min(520px, 86vw);
+  padding: 34px 40px;
+  text-align: center;
+  background: var(--tb-surface);
+  border: 2px dashed var(--tb-accent);
+  border-radius: var(--tb-radius-lg);
+  box-shadow: var(--tb-shadow);
+}
+.hlk-drop__icon { width: 44px; height: 44px; color: var(--tb-accent); }
+.hlk-drop__text { margin: 10px 0 14px; font-weight: 650; }
+.hlk-drop .tb-progress { margin-bottom: 8px; }
+
+/* ---- v1.2.1 Log 串流／右下角通知卡 ---- */
+#tbody tr[data-c] { cursor: pointer; }
+.hlk-notice {
+  position: fixed;
+  right: var(--tb-space-5);
+  bottom: var(--tb-space-5);
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: var(--tb-space-3);
+  width: 300px;
+  padding: 10px 12px;
+  background: var(--tb-surface);
+  border: 1px solid var(--tb-border);
+  border-left: 3px solid var(--tb-accent);
+  border-radius: var(--tb-radius-md);
+  box-shadow: var(--tb-shadow);
+}
+.hlk-notice--ok { border-left-color: var(--tb-ok); }
+.hlk-notice--err { border-left-color: var(--tb-danger); }
+.hlk-notice__icon { display: inline-flex; color: var(--tb-accent); flex: none; }
+.hlk-notice--ok .hlk-notice__icon { color: var(--tb-ok); }
+.hlk-notice--err .hlk-notice__icon { color: var(--tb-danger); }
+.hlk-notice__text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.hlk-notice__title { font-size: var(--tb-fs-sm); font-weight: 650; }
+.hlk-notice__sub {
+  font-size: var(--tb-fs-sm);
+  color: var(--tb-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hlk-notice__sub:empty { display: none; }
+.hlk-notice__x {
+  border: 0;
+  background: none;
+  color: var(--tb-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  flex: none;
+}
+.hlk-notice__x:hover { color: var(--tb-text); }
+.hlk-spin { animation: hlk-spin 0.9s linear infinite; }
+@keyframes hlk-spin { to { transform: rotate(360deg); } }

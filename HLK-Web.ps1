@@ -1,0 +1,45 @@
+# HLK-Web.ps1 - Dev-Toolbox web entry: start the HLK Viewer web server (hlk_web.py).
+# Tool runtime.kind stays 'powershell' (CLI = Launch-HLK.ps1), so the Hub launches
+# this wrapper instead of resolving Python itself.
+# Usage: .\HLK-Web.ps1 [-Port 8780] [-ParentPid <pid>] [-HubOrigin http://127.0.0.1:<p>] [-DataDir <path>]
+param(
+    [int]$Port = 0,
+    [int]$ParentPid = 0,
+    [string]$HubOrigin = '',
+    [string]$DataDir = ''
+)
+$ErrorActionPreference = 'Stop'
+$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+function Find-Python {
+    # same order as Hub Resolve-PythonExe (minus hub settings): env > .venv > py > PATH python (skip WindowsApps)
+    if ($env:DEVTOOLBOX_PYTHON -and (Test-Path -LiteralPath $env:DEVTOOLBOX_PYTHON -PathType Leaf)) {
+        return $env:DEVTOOLBOX_PYTHON
+    }
+    $venv = Join-Path $here '.venv\Scripts\python.exe'
+    if (Test-Path -LiteralPath $venv -PathType Leaf) { return $venv }
+    $py = Get-Command 'py' -ErrorAction SilentlyContinue
+    if ($py) { return $py.Source }
+    foreach ($c in @(Get-Command 'python' -ErrorAction SilentlyContinue)) {
+        if ($c.Source -notmatch 'WindowsApps') { return $c.Source }
+    }
+    return $null
+}
+
+$py = Find-Python
+if (-not $py) {
+    # stderr (Hub 只 tail .err 檔); 不用 Write-Error 是因為 ErrorActionPreference=Stop 會跳過 exit 5
+    [Console]::Error.WriteLine('Python 3 not found. Install Python or create .venv in the tool folder (or set DEVTOOLBOX_PYTHON).')
+    exit 5
+}
+
+$argv = @()
+if ((Split-Path -Leaf $py) -eq 'py.exe') { $argv += '-3' }
+$argv += (Join-Path $here 'hlk_web.py')
+if ($Port -gt 0)      { $argv += @('--port', $Port) }
+if ($ParentPid -gt 0) { $argv += @('--parent-pid', $ParentPid) }
+if ($HubOrigin)       { $argv += @('--hub-origin', $HubOrigin) }
+if ($DataDir)         { $argv += @('--data-dir', $DataDir) }
+
+& $py @argv
+exit $LASTEXITCODE
