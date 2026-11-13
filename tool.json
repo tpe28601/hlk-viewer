@@ -3,7 +3,7 @@
   "kind": "tool",
   "id": "hlk-viewer",
   "name": "HLK Viewer",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "Windows HLK 結果檢視：.hlkx test config 與 Te.wtl / HTA log 解析、彙總報表匯出 HTML（GUI + Web）",
   "runtime": { "kind": "powershell", "min": "5.1" },
   "web": { "entry": "HLK-Web.ps1", "defaultPort": 8780, "health": "/api/health" },

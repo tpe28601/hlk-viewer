@@ -1,6 +1,6 @@
 # HLK Viewer
 
-**HLK Viewer 1.2.7** 是 Windows HLK（Hardware Lab Kit）測試結果的離線檢視工具，有桌面 GUI（tkinter）和本機 Web 介面兩種用法。
+**HLK Viewer 1.2.8** 是 Windows HLK（Hardware Lab Kit）測試結果的離線檢視工具，有桌面 GUI（tkinter）和本機 Web 介面兩種用法。
 
 它主要解決一件事：**不用開 HLK Studio／HLK Manager，也能看懂 `.hlkx` 結果檔。** 直接列出每個測試項的 PASS／FAIL，把 `Te.wtl` 轉成和 HLK Manager 一樣的「Complete Report」`.htm`，也能把結果清單匯出成 Excel。
 

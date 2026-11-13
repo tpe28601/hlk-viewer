@@ -53,7 +53,7 @@ import hlk_xlsx                                    # noqa: E402
 from hlk_core import STATUS_TEXT                   # noqa: E402
 from standalone_update import handle_update        # noqa: E402
 
-VERSION = '1.2.7'
+VERSION = '1.2.8'
 TOOL_ID = 'hlk-viewer'
 DEFAULT_PORT = 8780
 MAX_PORT_SCAN = 20
