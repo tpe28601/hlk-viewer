@@ -1,4 +1,4 @@
-/* ui-kit 3.2.0 — Dev-Toolbox 共用樣式。正本在 Dev-Toolbox/ui-kit，請勿直接修改工具內的複本。 */
+/* ui-kit 3.4.0 — Dev-Toolbox 共用樣式。正本在 Dev-Toolbox/ui-kit，請勿直接修改工具內的複本。 */
 /* 搭配 tb-theme.js（深淺色／跟隨系統、強調色）、tb-icons.js（Lucide 圖標）與 tb-dirpicker.js（資料夾／檔案挑選器）。示範頁：ui-kit/demo.html
  * 3.1.0：.tb-btn.is-busy 的圖標由 tb-icons.js 換成 loader 圓弧，本檔只負責轉圈。 */
 
@@ -427,3 +427,9 @@
 
 /* 分段切換、色票放在欄位裡時不要被拉滿 */
 .tb-field > .tb-seg, .tb-field > .tb-swatches, .tb-stack > .tb-seg { align-self: flex-start; }
+
+/* Hub 和獨立工具共用的石墨配色。 */
+:root[data-theme=dark][data-hub-bg=graphite] { --tb-bg: #111214; --tb-surface: #18191c; --tb-surface-2: #1f2024; --tb-surface-3: #27282d;
+  --tb-border: #2e3036; --tb-border-strong: #3d4047; --tb-text: #e8e9eb; --tb-muted: #9da0a8; --tb-scroll: #3d4047; }
+:root[data-theme=light][data-hub-bg=graphite] { --tb-bg: #f3f3f4; --tb-surface: #ffffff; --tb-surface-2: #efeff1; --tb-surface-3: #e4e4e7;
+  --tb-border: #dcdce1; --tb-border-strong: #c2c3c9; --tb-text: #17181b; --tb-muted: #5c5e66; --tb-scroll: #c2c3c9; }

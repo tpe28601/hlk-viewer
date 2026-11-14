@@ -68,7 +68,7 @@ UI_FILES = {'/': 'index.html', '/index.html': 'index.html', '/app.js': 'app.js',
             '/app.css': 'app.css', '/ui-kit.css': 'ui-kit.css',
             '/tb-theme.js': 'tb-theme.js', '/tb-icons.js': 'tb-icons.js',
             '/tb-dirpicker.js': 'tb-dirpicker.js', '/tb-standalone-update.js': 'tb-standalone-update.js'}
-CSP_PAGE = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+CSP_PAGE = ("default-src 'self'; script-src 'self'; "
             "img-src 'self' data:; connect-src 'self'; frame-src 'self'; ")
 # exported/previewed HTML: no scripts, but hlk_wtl emits inline styles
 CSP_VIEW = ("default-src 'none'; style-src 'unsafe-inline'; img-src data:; ")
@@ -240,6 +240,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def _frame_ancestors(self, extra_csp=''):
         ancestors = 'frame-ancestors ' + ' '.join(["'self'"] + list(self.hub_origins))
+        if extra_csp == CSP_PAGE:
+            theme_sources = ' '.join(f'{origin}/tool-theme.css' for origin in self.hub_origins)
+            extra_csp += f"style-src 'self' 'unsafe-inline' {theme_sources}; "
         self.send_header('Content-Security-Policy', (extra_csp + ancestors) if extra_csp else ancestors)
 
     def _send_json(self, obj, status=200):

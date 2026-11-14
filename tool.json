@@ -10,5 +10,5 @@
   "cli": { "entry": "Launch-HLK.ps1", "menu": false, "json": false },
   "requires": ["python"],
   "dataDir": "%LOCALAPPDATA%/DevToolbox/hlk-viewer",
-  "uiKit": "3.2.0"
+  "uiKit": "3.4.0"
 }
