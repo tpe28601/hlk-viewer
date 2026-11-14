@@ -1,5 +1,5 @@
 ﻿param(
-    [ValidateSet('Show','Resolve','Open','Check')][string]$Action = 'Show',
+    [ValidateSet('Show','Resolve','Open','Check','Python')][string]$Action = 'Show',
     [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+$')][string]$Version
 )
 
@@ -13,6 +13,10 @@ if ($Action -eq 'Open') {
 . (Join-Path $PSScriptRoot 'Tool-Updates.ps1')
 $root = $PSScriptRoot
 $manifest = [IO.File]::ReadAllText((Join-Path $root 'tool.json')) | ConvertFrom-Json
+if ($Action -eq 'Python') {
+    Resolve-StandaloneToolPython $root $manifest.id
+    return
+}
 $data = if ($env:DEVTOOLBOX_DATA) { $env:DEVTOOLBOX_DATA } else { Join-Path $env:LOCALAPPDATA 'DevToolbox' }
 $store = Get-ToolUpdateStore $root (Join-Path $data 'standalone')
 # A copy launched from the version store must keep following that same store.
@@ -61,6 +65,7 @@ try {
         'build-runner' = @('Run-CLI.bat', 'Run-Web.bat')
         'hlk-viewer' = @('Launch-HLK.ps1', 'HLK-Web.ps1')
         'key-manager' = @('run_windows.bat')
+        'script-editor' = @('Run-Script-Editor.bat', 'Launch-SE.ps1', 'Script-Web.ps1')
     }
     Install-ToolRelease $store $tool $offer {
         foreach ($file in @('Standalone-Update.ps1', 'Tool-Updates.ps1') + $launcher[$tool.Id]) {

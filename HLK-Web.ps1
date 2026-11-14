@@ -15,27 +15,10 @@ if ($ParentPid -eq 0) {
     if ($active) { & (Join-Path $active 'HLK-Web.ps1') @PSBoundParameters; exit $LASTEXITCODE }
 }
 
-function Find-Python {
-    # same order as Hub Resolve-PythonExe (minus hub settings): env > .venv > py > PATH python (skip WindowsApps)
-    if ($env:DEVTOOLBOX_PYTHON -and (Test-Path -LiteralPath $env:DEVTOOLBOX_PYTHON -PathType Leaf)) {
-        return $env:DEVTOOLBOX_PYTHON
-    }
-    $bundled = Join-Path $here 'runtime\python\python.exe'
-    if (Test-Path -LiteralPath $bundled -PathType Leaf) { return $bundled }
-    $venv = Join-Path $here '.venv\Scripts\python.exe'
-    if (Test-Path -LiteralPath $venv -PathType Leaf) { return $venv }
-    $py = Get-Command 'py' -ErrorAction SilentlyContinue
-    if ($py) { return $py.Source }
-    foreach ($c in @(Get-Command 'python' -ErrorAction SilentlyContinue)) {
-        if ($c.Source -notmatch 'WindowsApps') { return $c.Source }
-    }
-    return $null
-}
-
-$py = Find-Python
+$py = & (Join-Path $here 'Standalone-Update.ps1') -Action Python
 if (-not $py) {
     # stderr (Hub 只 tail .err 檔); 不用 Write-Error 是因為 ErrorActionPreference=Stop 會跳過 exit 5
-    [Console]::Error.WriteLine('Python 3 not found. Install Python or create .venv in the tool folder (or set DEVTOOLBOX_PYTHON).')
+    [Console]::Error.WriteLine('找不到相容的 Python。請下載內附 Python 的完整版，或安裝相容的 Python（3.11 以上）。')
     exit 5
 }
 
