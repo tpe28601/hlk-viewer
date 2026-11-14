@@ -1,4 +1,4 @@
-# HLK-Web.ps1 - Dev-Toolbox web entry: start the HLK Viewer web server (hlk_web.py).
+﻿# HLK-Web.ps1 - Dev-Toolbox web entry: start the HLK Viewer web server (hlk_web.py).
 # Tool runtime.kind stays 'powershell' (CLI = Launch-HLK.ps1), so the Hub launches
 # this wrapper instead of resolving Python itself.
 # Usage: .\HLK-Web.ps1 [-Port 8780] [-ParentPid <pid>] [-HubOrigin http://127.0.0.1:<p>] [-DataDir <path>]
@@ -20,6 +20,8 @@ function Find-Python {
     if ($env:DEVTOOLBOX_PYTHON -and (Test-Path -LiteralPath $env:DEVTOOLBOX_PYTHON -PathType Leaf)) {
         return $env:DEVTOOLBOX_PYTHON
     }
+    $bundled = Join-Path $here 'runtime\python\python.exe'
+    if (Test-Path -LiteralPath $bundled -PathType Leaf) { return $bundled }
     $venv = Join-Path $here '.venv\Scripts\python.exe'
     if (Test-Path -LiteralPath $venv -PathType Leaf) { return $venv }
     $py = Get-Command 'py' -ErrorAction SilentlyContinue

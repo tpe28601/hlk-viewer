@@ -20,6 +20,8 @@ function Resolve-HlkPython([bool]$Gui) {
         }
         return $env:DEVTOOLBOX_PYTHON
     }
+    $bundled = Join-Path $root "runtime\python\$exeName"
+    if (Test-Path -LiteralPath $bundled -PathType Leaf) { return $bundled }
     $venv = Join-Path $root ".venv\Scripts\$exeName"
     if (Test-Path -LiteralPath $venv) { return $venv }
     $launcher = if ($Gui) { 'pyw' } else { 'py' }

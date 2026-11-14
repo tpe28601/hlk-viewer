@@ -8,6 +8,8 @@ $script:ToolReleaseRepos = @{
     'dev-toolbox' = 'tpe28601/Dev-Toolbox'
 }
 $script:MaxToolZipBytes = 100MB
+$script:MaxToolManifestBytes = 16KB
+$script:PortablePythonToolIds = @('build-runner', 'hlk-viewer', 'key-manager')
 
 function Get-ToolUpdateStore([string]$Root, [string]$DataRoot) {
     $sha = [Security.Cryptography.SHA256]::Create()
@@ -49,42 +51,75 @@ function Resolve-ToolUpdateDir([string]$Store, [string]$Id, [string]$BundledVers
     return $BundledDir
 }
 
+function Read-ToolReleaseManifest($Asset, [string]$Url) {
+    $size = [long]$Asset.size
+    if ($size -le 0 -or $size -gt $script:MaxToolManifestBytes -or
+        $Asset.digest -notmatch '^sha256:([0-9a-f]{64})$') { return }
+    $hash = $Matches[1]
+    $path = Join-Path ([IO.Path]::GetTempPath()) ('dev-toolbox-' + [guid]::NewGuid().ToString('N') + '.json')
+    try {
+        Get-ToolReleaseFile @{ url = $Url; size = $size } $path -TimeoutMs 5000
+        if ((Get-Item -LiteralPath $path).Length -ne $size -or
+            (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $hash) { return }
+        [IO.File]::ReadAllText($path) | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        Write-Verbose "Could not read release metadata from ${Url}: $_"
+    } finally {
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Select-ToolRelease($Tool, [string]$Repo, [string]$HubVersion, $Releases) {
-    $current = ConvertTo-ToolVersion $Tool.Version
+    $current = if ($Tool.Version) { ConvertTo-ToolVersion $Tool.Version } else { [version]'0.0.0' }
     $hub = ConvertTo-ToolVersion $HubVersion
     if (-not $current -or ($HubVersion -and -not $hub)) { throw '工具和 Hub 必須使用正式版號（X.Y.Z）才能檢查更新。' }
+    $requiresRuntime = $Tool.Id -in $script:PortablePythonToolIds -and
+        (-not $Tool.Version -or ($Tool.Dir -and (Test-Path -LiteralPath (Join-Path $Tool.Dir 'runtime\python\python.exe') -PathType Leaf)))
 
-    $best = $null
-    $bestVersion = $current
-    foreach ($release in $Releases) {
+    $candidates = foreach ($release in $Releases) {
         if ($release.draft -or $release.prerelease -or $release.tag_name -cnotmatch '^v(.+)$') { continue }
-        $text = $Matches[1]
-        $version = ConvertTo-ToolVersion $text
-        if (-not $version -or $version -le $bestVersion) { continue }
+        $version = ConvertTo-ToolVersion $Matches[1]
+        if ($version -and $version -gt $current) { @{ version = $version; release = $release } }
+    }
+    foreach ($candidate in ($candidates | Sort-Object { $_.version } -Descending)) {
+        $release = $candidate.release
+        $text = $candidate.version.ToString()
         $name = "$($Tool.Id)-$text.zip"
         $assets = @($release.assets | Where-Object { $_.name -ceq $name -and $_.state -eq 'uploaded' })
         if ($assets.Count -ne 1) { continue }
         $asset = $assets[0]
-        if ($Tool.Id -ne 'dev-toolbox') {
-            if ($asset.label -cnotmatch '^min-hub=(.+)$') { continue }
-            $minHub = ConvertTo-ToolVersion $Matches[1]
-            if (-not $minHub -or ($hub -and $minHub -gt $hub)) { continue }
-        }
         if ($asset.digest -notmatch '^sha256:([0-9a-f]{64})$') { continue }
         $hash = $Matches[1]
         $size = [long]$asset.size
         if ($size -le 0 -or $size -gt $script:MaxToolZipBytes) { continue }
+        $baseUrl = "https://github.com/$Repo/releases/download/v$text"
+        $manifestName = "$($Tool.Id)-$text.update.json"
+        $manifests = @($release.assets | Where-Object { $_.name -ceq $manifestName })
+        if ($manifests.Count -gt 0) {
+            if ($manifests.Count -ne 1 -or $manifests[0].state -ne 'uploaded') { continue }
+            $metadata = Read-ToolReleaseManifest $manifests[0] "$baseUrl/$manifestName"
+            if ($metadata -isnot [pscustomobject] -or $metadata.version -isnot [string] -or $metadata.version -cne $text -or
+                $metadata.file -isnot [string] -or $metadata.file -cne $name) { continue }
+            if ($requiresRuntime -and ($metadata.portable -isnot [bool] -or -not $metadata.portable)) { continue }
+            if ($Tool.Id -ne 'dev-toolbox') {
+                if ($metadata.minHub -isnot [string]) { continue }
+                $minHub = ConvertTo-ToolVersion $metadata.minHub
+            }
+        } elseif ($Tool.Id -ne 'dev-toolbox') {
+            if ($requiresRuntime) { continue }
+            if ($asset.label -cnotmatch '^min-hub=(.+)$') { continue }
+            $minHub = ConvertTo-ToolVersion $Matches[1]
+        }
+        if ($Tool.Id -ne 'dev-toolbox' -and (-not $minHub -or ($hub -and $minHub -gt $hub))) { continue }
         $notes = [string]$release.body
-        $best = [pscustomobject]@{
+        return [pscustomobject]@{
             version = $text
-            url = "https://github.com/$Repo/releases/download/v$text/$name"
+            url = "$baseUrl/$name"
             sha256 = $hash
             size = $size
             notes = $notes.Substring(0, [Math]::Min($notes.Length, 2000))
         }
-        $bestVersion = $version
     }
-    return $best
 }
 
 function Get-ToolRelease($Tool, [string]$HubVersion) {
@@ -97,10 +132,10 @@ function Get-ToolRelease($Tool, [string]$HubVersion) {
     return (Select-ToolRelease $Tool $repo $HubVersion $releases)
 }
 
-function Get-ToolReleaseFile($Offer, [string]$Path) {
+function Get-ToolReleaseFile($Offer, [string]$Path, [int]$TimeoutMs = 120000) {
     Add-Type -AssemblyName System.Net.Http
     $client = [Net.Http.HttpClient]::new()
-    $timeout = [Threading.CancellationTokenSource]::new(120000)
+    $timeout = [Threading.CancellationTokenSource]::new($TimeoutMs)
     try {
         $response = $client.GetAsync($Offer.url, [Net.Http.HttpCompletionOption]::ResponseHeadersRead, $timeout.Token).GetAwaiter().GetResult()
         try {
@@ -200,6 +235,11 @@ function Install-ToolRelease([string]$Store, $Tool, $Offer, [scriptblock]$Before
             throw '下載檔案大小或 SHA-256 與 Release 不符。'
         }
         Expand-ToolRelease $zip $payload $Tool.Id $Offer.version
+        if ($Tool.Id -in $script:PortablePythonToolIds -and
+            (-not $Tool.Version -or ($Tool.Dir -and (Test-Path -LiteralPath (Join-Path $Tool.Dir 'runtime\python\python.exe') -PathType Leaf))) -and
+            -not (Test-Path -LiteralPath (Join-Path $payload 'runtime\python\python.exe') -PathType Leaf)) {
+            throw '安裝套件缺少附帶的 Python。'
+        }
 
         $destination = Join-Path $toolStore $Offer.version
         $switched = $false
