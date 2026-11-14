@@ -1,5 +1,11 @@
 # Changelog — HLK Viewer
 
+## v1.2.9 (2026-11-15)
+
+- Hub 和 HLK Viewer 使用一致的文件圖示。
+- 測試 Log、區塊預覽與匯出視窗跟隨 Hub 玻璃樣式，通知改用共用元件。
+- 獨立開啟使用石墨深淺色。
+
 ## v1.2.7 (2026-11-13)
 - README 由 `README.txt`（版本紀錄式）改寫為 `README.md`：功能表、需求、快速開始、Web／GUI／命令列用法、
   資料位置、已知限制與專案結構，格式比照 Dev-Toolbox 其他工具。

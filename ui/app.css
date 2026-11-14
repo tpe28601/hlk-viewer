@@ -158,23 +158,6 @@ th.sortable.sorted[data-dir="desc"]::after { content: '↓'; }
 }
 .hlk-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
 
-/* toast */
-.hlk-toast {
-  position: fixed;
-  bottom: var(--tb-space-5);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--tb-text);
-  color: var(--tb-bg);
-  padding: 8px 18px;
-  border-radius: 999px;
-  font-size: var(--tb-fs-sm);
-  box-shadow: var(--tb-shadow);
-  z-index: 90;
-  max-width: 80%;
-}
-.hlk-toast--ok { background: var(--tb-ok); color: #fff; }
-
 /* ---- v1.2 拖曳上傳 / 錯誤訊息（檔案瀏覽已改用 ui-kit tb-dirpicker，.tb-dp-* 樣式在 ui-kit.css） ---- */
 
 .hlk-msg {

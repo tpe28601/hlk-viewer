@@ -15,7 +15,7 @@
 </head>
 <body class="tb-app">
 <header class="tool-topbar tb-hide-embedded">
-  <div class="tool-topbar__brand"><span class="tb-card__icon"><i data-tb-icon="circle-check" data-size="17"></i></span>HLK Viewer</div>
+  <div class="tool-topbar__brand"><span class="tb-card__icon"><i data-tb-icon="file-text" data-size="17"></i></span>HLK Viewer</div>
   <div class="tb-row tb-row--end tool-topbar__controls">
     <span id="server-port" class="tool-topbar__port">本機服務 port —</span>
     <button id="standalone-update" class="tb-btn tb-btn--icon tb-hidden" type="button" hidden><i data-tb-icon="download" aria-hidden="true"></i></button>
@@ -135,7 +135,7 @@
 </main>
 
 <!-- ============ 單項 Log 彈窗 ============ -->
-<div class="hlk-mask hidden" id="row-mask">
+<div class="hlk-mask tb-theme-backdrop hidden" id="row-mask">
   <div class="hlk-modal tb-theme-dialog" role="dialog" aria-label="測試項 Log">
     <div class="hlk-modal__head">
       <span class="hlk-modal__title" id="rm-title">Log</span>
@@ -166,7 +166,7 @@
 </div>
 
 <!-- ============ Log 串流 chunk 預覽彈窗 ============ -->
-<div class="hlk-mask hidden" id="pc-mask">
+<div class="hlk-mask tb-theme-backdrop hidden" id="pc-mask">
   <div class="hlk-modal tb-theme-dialog" role="dialog" aria-label="Log chunk 預覽">
     <div class="hlk-modal__head">
       <span class="hlk-modal__title" id="pc-title">Log chunk</span>
@@ -186,7 +186,7 @@
 </div>
 
 <!-- ============ 匯出進度彈窗 ============ -->
-<div class="hlk-mask hidden" id="ex-mask">
+<div class="hlk-mask tb-theme-backdrop hidden" id="ex-mask">
   <div class="hlk-modal tb-theme-dialog hlk-modal--sm" role="dialog" aria-label="匯出進度">
     <div class="hlk-modal__head">
       <span class="hlk-modal__title">匯出 Log</span>
@@ -218,7 +218,7 @@
 <!-- 檔案瀏覽改用 ui-kit tb-dirpicker.js 共用元件（DOM 由元件動態產生） -->
 
 <!-- ============ 錯誤訊息彈窗 ============ -->
-<div class="hlk-mask hidden" id="ms-mask">
+<div class="hlk-mask tb-theme-backdrop hidden" id="ms-mask">
   <div class="hlk-modal tb-theme-dialog" role="dialog" aria-label="錯誤訊息">
     <div class="hlk-modal__head">
       <span class="hlk-modal__title" id="ms-title">錯誤</span>
@@ -238,7 +238,7 @@
 </div>
 
 <!-- ============ 所有類型 Log 匯出彈窗（跨側項, 對照 GUI「Log→進階」） ============ -->
-<div class="hlk-mask hidden" id="ad-mask">
+<div class="hlk-mask tb-theme-backdrop hidden" id="ad-mask">
   <div class="hlk-modal tb-theme-dialog" role="dialog" aria-label="所有類型 Log 匯出">
     <div class="hlk-modal__head">
       <span class="hlk-modal__title">所有類型 Log 匯出（跨側項）</span>
@@ -276,7 +276,7 @@
   </div>
 </div>
 
-<div class="hlk-toast hidden" id="toast" role="status"></div>
+<div class="tb-toast-area"><div class="tb-toast hidden" id="toast" role="status"></div></div>
 
 <!-- ============ 右下角通知卡 ============ -->
 <div class="hlk-notice hidden" id="nt-card" role="status">

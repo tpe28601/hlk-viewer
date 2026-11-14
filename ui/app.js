@@ -42,7 +42,8 @@
   function toast(msg, ok) {
     var el = $('toast');
     el.textContent = msg;
-    el.classList.toggle('hlk-toast--ok', !!ok);
+    el.classList.toggle('tb-toast--ok', !!ok);
+    el.classList.toggle('tb-toast--danger', !ok);
     el.classList.remove('hidden');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { el.classList.add('hidden'); }, ok ? 2500 : 6000);
