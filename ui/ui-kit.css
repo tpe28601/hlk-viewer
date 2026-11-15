@@ -278,6 +278,8 @@
   background: var(--tb-surface); color: var(--tb-text); font: inherit;
   transition: border-color var(--tb-transition), box-shadow var(--tb-transition);
 }
+/* Native dropdowns need an opaque option background, including in glass themes. */
+.tb-app select :is(option, optgroup) { background-color: var(--tb-bg); color: var(--tb-text); }
 .tb-input::placeholder, .tb-textarea::placeholder { color: color-mix(in srgb, var(--tb-muted) 75%, transparent); }
 .tb-input:hover, .tb-select:hover, .tb-textarea:hover { border-color: color-mix(in srgb, var(--tb-accent) 55%, var(--tb-border-strong)); }
 .tb-input:focus, .tb-select:focus, .tb-textarea:focus { outline: none; border-color: var(--tb-accent); box-shadow: var(--tb-focus); }
