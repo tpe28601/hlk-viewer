@@ -21,6 +21,97 @@ function Get-ToolUpdateStore([string]$Root, [string]$DataRoot) {
     } finally { $sha.Dispose() }
 }
 
+function Get-LegacyHubUpdateStore([string]$Root, [string]$DataRoot) {
+    $marker = Join-Path $Root '.dev-toolbox-id'
+    if ([IO.File]::Exists($marker)) {
+        try {
+            $id = [IO.File]::ReadAllText($marker).Trim()
+            if ($id -cmatch '^[0-9A-F]{64}$') { return (Join-Path $DataRoot "tool-updates\$id") }
+        } catch { }
+    }
+    return (Get-ToolUpdateStore $Root $DataRoot)
+}
+
+function Get-ToolVersionStore([string]$Root, [string]$Id, [string]$Version) {
+    $product = Split-Path -Parent $Root
+    if (-not $product -or (Split-Path -Leaf $product) -ne $Id -or (Split-Path -Leaf $Root) -ne $Version) { return }
+    $store = Split-Path -Parent $product
+    $leaf = Split-Path -Leaf $store
+    if ($leaf -eq 'updates' -or ($leaf -cmatch '^[A-F0-9]{64}$' -and
+        (Split-Path -Leaf (Split-Path -Parent $store)) -eq 'tool-updates')) { return $store }
+}
+
+function Copy-ToolUpdateTree([string]$Source, [string]$Destination) {
+    $item = Get-Item -LiteralPath $Source -Force -ErrorAction Stop
+    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Update contains a linked path: $Source" }
+    if (-not $item.PSIsContainer) {
+        [IO.File]::Copy($Source, $Destination)
+        return
+    }
+    [void][IO.Directory]::CreateDirectory($Destination)
+    foreach ($child in Get-ChildItem -LiteralPath $Source -Force -ErrorAction Stop) {
+        Copy-ToolUpdateTree $child.FullName (Join-Path $Destination $child.Name)
+    }
+}
+
+function Get-PortableUpdateStore([string]$Root, [string]$LegacyStore, [string]$ToolId, [string]$StandaloneUpdater) {
+    $portable = Join-Path $Root 'updates'
+    if ([IO.Directory]::Exists($portable)) { return $portable }
+    $stage = Join-Path $Root ('.updates-' + [guid]::NewGuid().ToString('N') + '.tmp')
+    $locks = @()
+    try {
+        $ids = if ($ToolId) { @($ToolId) } else { $script:ToolReleaseRepos.Keys }
+        foreach ($id in $ids) {
+            $source = Join-Path $LegacyStore $id
+            if ([IO.Directory]::Exists($source)) {
+                $locks += [IO.File]::Open((Join-Path $source 'update.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
+            }
+        }
+        [void][IO.Directory]::CreateDirectory($stage)
+        foreach ($id in $ids) {
+            $source = Join-Path $LegacyStore $id
+            $version = Read-ActiveToolVersion $source
+            if (-not $version) { continue }
+            $payload = Resolve-ToolUpdateDir $LegacyStore $id '0.0.0' ''
+            if (-not $payload) { throw "Cannot identify active version for $id." }
+            $target = Join-Path $stage "$id\$version"
+            Copy-ToolUpdateTree $payload $target
+            # The migrated release's original launcher still calls these two files.
+            $updater = Join-Path $target 'Standalone-Update.ps1'
+            $updateCore = Join-Path $target 'Tool-Updates.ps1'
+            if ($StandaloneUpdater -and [IO.File]::Exists($updater) -and [IO.File]::Exists($updateCore)) {
+                [IO.File]::Copy($StandaloneUpdater, $updater, $true)
+                [IO.File]::Copy((Join-Path $PSScriptRoot 'Tool-Updates.ps1'), $updateCore, $true)
+            }
+            $saved = Join-Path $target '.hub-python'
+            if ([IO.File]::Exists($saved)) {
+                $python = Read-InstalledToolPython $payload
+                $shared = Join-Path (Get-ToolDataRoot) 'shared-python'
+                $runtime = if ($python) { Split-Path -Parent $python }
+                $runtimeId = if ($runtime) { Split-Path -Leaf $runtime }
+                if ($runtimeId -match '^\d+\.\d+\.\d+-[a-f0-9]{12}$' -and
+                    (Split-Path -Parent $runtime) -eq $shared -and [IO.File]::Exists($python)) {
+                    $dest = Join-Path $stage "shared-python\$runtimeId"
+                    if (-not [IO.Directory]::Exists($dest)) { Copy-ToolUpdateTree $runtime $dest }
+                    [IO.File]::WriteAllText($saved, "shared-python\$runtimeId\python.exe")
+                } else { [IO.File]::Delete($saved) }
+            }
+            [IO.File]::WriteAllText((Join-Path $stage "$id\active.txt"), $version)
+        }
+        [IO.Directory]::Move($stage, $portable)
+        return $portable
+    } catch {
+        Write-Verbose "Portable update migration deferred: $($_.Exception.Message)"
+        if ([IO.Directory]::Exists($portable)) { return $portable }
+        return $LegacyStore
+    } finally {
+        foreach ($lock in $locks) { $lock.Dispose() }
+        if ([IO.Directory]::Exists($stage) -and (Split-Path -Parent ([IO.Path]::GetFullPath($stage))) -eq [IO.Path]::GetFullPath($Root).TrimEnd('\')) {
+            try { [IO.Directory]::Delete($stage, $true) } catch { }
+        }
+    }
+}
+
 function ConvertTo-ToolVersion([string]$Text) {
     if ($Text -match '^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$') {
         $version = $null
@@ -107,7 +198,12 @@ function Get-CompatibleToolPython([string]$Exe, [string]$Id, [string]$Dependenci
 
 function Read-InstalledToolPython([string]$ToolDir) {
     $path = Join-Path $ToolDir '.hub-python'
-    if ([IO.File]::Exists($path)) { return [IO.File]::ReadAllText($path).Trim() }
+    if (-not [IO.File]::Exists($path)) { return }
+    $saved = [IO.File]::ReadAllText($path).Trim()
+    if ($saved -match '^shared-python\\\d+\.\d+\.\d+-[a-f0-9]{12}\\python\.exe$') {
+        $store = Split-Path -Parent (Split-Path -Parent $ToolDir)
+        if ((Split-Path -Leaf $store) -eq 'updates') { return (Join-Path $store $saved) }
+    } elseif ([IO.Path]::IsPathRooted($saved)) { return $saved }
 }
 
 function Get-ToolDataRoot {
@@ -115,8 +211,8 @@ function Get-ToolDataRoot {
     return (Join-Path $env:LOCALAPPDATA 'DevToolbox')
 }
 
-function Get-SharedPythonCandidates {
-    $root = Join-Path (Get-ToolDataRoot) 'shared-python'
+function Get-SharedPythonCandidates([string]$Store) {
+    $root = if ($Store) { Join-Path $Store 'shared-python' } else { Join-Path (Get-ToolDataRoot) 'shared-python' }
     foreach ($dir in @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending)) {
         if ($dir.Name -notmatch '^\d+\.\d+\.\d+-[a-f0-9]{12}$') { continue }
         $exe = Join-Path $dir.FullName 'python.exe'
@@ -138,7 +234,7 @@ function Resolve-StandaloneToolPython([string]$ToolDir, [string]$Id) {
     }
 }
 
-function Register-SharedToolPython([string]$Payload, [string]$Id) {
+function Register-SharedToolPython([string]$Payload, [string]$Id, [string]$Store) {
     $runtime = Join-Path $Payload 'runtime\python'
     $exe = Join-Path $runtime 'python.exe'
     if (-not [IO.File]::Exists($exe)) { return }
@@ -146,7 +242,8 @@ function Register-SharedToolPython([string]$Payload, [string]$Id) {
     if ($LASTEXITCODE -or -not (ConvertTo-ToolVersion $version)) { throw '無法辨識套件內附的 Python。' }
     $dll = Get-Item -LiteralPath (Join-Path $runtime "python$(([version]$version).Major)$(([version]$version).Minor).dll")
     $hash = (Get-FileHash -LiteralPath $dll.FullName -Algorithm SHA256).Hash.Substring(0,12).ToLowerInvariant()
-    $root = Join-Path (Get-ToolDataRoot) 'shared-python'
+    $portable = $Store -and (Split-Path -Leaf $Store) -eq 'updates'
+    $root = if ($portable) { Join-Path $Store 'shared-python' } else { Join-Path (Get-ToolDataRoot) 'shared-python' }
     [void][IO.Directory]::CreateDirectory($root)
     $destination = Join-Path $root "$version-$hash"
     $sharedExe = Join-Path $destination 'python.exe'
@@ -168,7 +265,8 @@ function Register-SharedToolPython([string]$Payload, [string]$Id) {
         if ($resolved -ne $runtime -or $resolved -ne (Join-Path ([IO.Path]::GetFullPath($Payload)) 'runtime\python')) { throw '套件的 Python 目錄無法安全移除。' }
         [IO.Directory]::Delete($resolved,$true)
     }
-    [IO.File]::WriteAllText((Join-Path $Payload '.hub-python'),$sharedExe)
+    $reference = if ($portable) { "shared-python\$version-$hash\python.exe" } else { $sharedExe }
+    [IO.File]::WriteAllText((Join-Path $Payload '.hub-python'), $reference)
 }
 
 function Select-ToolRelease($Tool, [string]$Repo, [string]$HubVersion, $Releases, [scriptblock]$LocalPython) {
@@ -245,6 +343,8 @@ function Select-ToolRelease($Tool, [string]$Repo, [string]$HubVersion, $Releases
             $notes = [string]$release.body
             return [pscustomobject]@{
                 version = $text
+                # Release 頁面（安裝視窗的「在 GitHub 查看」）；只接受 github.com 的網址
+                page = $(if ([string]$release.html_url -match '^https://github\.com/') { [string]$release.html_url } else { '' })
                 url = "$baseUrl/$($package.name)"
                 sha256 = $hash
                 size = $size
@@ -392,14 +492,22 @@ function Install-ToolRelease([string]$Store, $Tool, $Offer, [scriptblock]$Before
             if ($Offer.bundledDependencies -and (-not [IO.Directory]::Exists($deps) -or -not (Get-CompatibleToolPython $Offer.python $Tool.Id $deps $Offer.pythonAbi))) {
                 throw '輕量版的相依套件無法在選用的 Python 執行。'
             }
-            [IO.File]::WriteAllText((Join-Path $payload '.hub-python'), $Offer.python)
+            $reference = $Offer.python
+            if ((Split-Path -Leaf $Store) -eq 'updates') {
+                $prefix = [IO.Path]::GetFullPath($Store).TrimEnd('\') + '\'
+                if (-not $reference.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+                    throw '可攜版輕量套件需要此更新目錄內的共用 Python。'
+                }
+                $reference = $reference.Substring($prefix.Length)
+            }
+            [IO.File]::WriteAllText((Join-Path $payload '.hub-python'), $reference)
         } elseif ($Tool.Id -in $script:PortablePythonToolIds -and
             (-not $Tool.Version -or ($Tool.Dir -and (Test-Path -LiteralPath (Join-Path $Tool.Dir 'runtime\python\python.exe') -PathType Leaf))) -and
             -not (Test-Path -LiteralPath $bundledPython -PathType Leaf)) {
             throw '安裝套件缺少附帶的 Python。'
         }
         if ($SharePython -and $Tool.Id -in $script:PortablePythonToolIds) {
-            Register-SharedToolPython $payload $Tool.Id
+            Register-SharedToolPython $payload $Tool.Id $Store
         }
 
         $destination = Join-Path $toolStore $Offer.version
