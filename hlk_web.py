@@ -370,6 +370,10 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == '/api/standalone-update':
             if self.managed:
+                # Started by the Hub: report "managed, no standalone update" instead of 403 (no browser error);
+                # opening the standalone updater is still refused.
+                if isinstance(body, dict) and body.get('action') == 'check':
+                    return self._send_json({'ok': True, 'update': None, 'managed': True})
                 return self._send_err('MANAGED_BY_HUB', '請從 Hub 更新工具。', 403)
             return self._send_json(handle_update(Path(__file__).resolve().parent, body))
         if path == '/api/open':
